@@ -772,7 +772,7 @@ static int axp20x_sysfs_init(struct axp20x_dev *axp)
 		dev_warn(axp->dev, "Unable to enable ADC");
 
 	// Set ADC sampling frequency to 100Hz (default is 25)
-	ret = regmap_update_bits(axp->regmap, AXP20X_ADC_EN2, 0xC0, 0x08);
+	ret = regmap_update_bits(axp->regmap, AXP20X_ADC_EN2, 0xC0, 0x80);
 	if (ret != 0)
 		dev_warn(axp->dev, "Unable to set ADC frequency");
 

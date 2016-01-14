@@ -1,5 +1,5 @@
 diff --git a/drivers/mfd/axp20x.c b/drivers/mfd/axp20x.c
-index 9842199..c4594c9 100644
+index 9842199..913550c 100644
 --- a/drivers/mfd/axp20x.c
 +++ b/drivers/mfd/axp20x.c
 @@ -26,6 +26,7 @@
@@ -179,7 +179,7 @@ index 9842199..c4594c9 100644
 +		dev_warn(axp->dev, "Unable to enable ADC");
 +
 +	// Set ADC sampling frequency to 100Hz (default is 25)
-+	ret = regmap_update_bits(axp->regmap, AXP20X_ADC_EN2, 0xC0, 0x08);
++	ret = regmap_update_bits(axp->regmap, AXP20X_ADC_EN2, 0xC0, 0x80);
 +	if (ret != 0)
 +		dev_warn(axp->dev, "Unable to set ADC frequency");
 +
