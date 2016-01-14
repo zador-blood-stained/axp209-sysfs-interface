@@ -26,6 +26,7 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/acpi.h>
+#include <linux/delay.h>
 
 #define AXP20X_OFF	0x80
 
@@ -606,6 +607,27 @@ static void axp20x_power_off(void)
 		     AXP20X_OFF);
 }
 
+static int axp20x_averaging_helper(struct axp20x_dev *axp, unsigned int reg_h,
+	unsigned int reg_l, unsigned int *val, bool reg_l_5bit)
+{
+	unsigned int rval_low = 0, rval_high = 0, i;
+	long acc = 0;
+	int ret = 0;
+
+	for (i = 0; i < 3; i++)
+	{
+		ret |= regmap_read(axp->regmap, reg_h, &rval_high);
+		ret |= regmap_read(axp->regmap, reg_l, &rval_low);
+		acc += (int)((rval_high << (reg_l_5bit ? 5 : 4)) | (rval_low & (reg_l_5bit ? 0x001F : 0x000F)));
+		// For 100Hz sampling frequency
+		msleep(20);
+	}
+	acc /= 3;
+	*val = (int)acc;
+
+	return ret;
+}
+
 /*
  * axp_show_property() - get sysfs property for AXP209
  * @dev:       pointer to the device structure
@@ -629,15 +651,19 @@ static ssize_t axp20x_show_property(struct device *dev, struct device_attribute 
 
 	if (strcmp(attr->attr.name, "acin_voltage") == 0)
 	{
-		ret = regmap_read(axp->regmap, AXP20X_ACIN_V_ADC_H, &rval_high);
-		ret |= regmap_read(axp->regmap, AXP20X_ACIN_V_ADC_L, &rval_low);
-		val = (int)((rval_high << 4) | (rval_low & 0x0F)) * 1700 / 1000;
+		ret = axp20x_averaging_helper(axp, AXP20X_ACIN_V_ADC_H, AXP20X_ACIN_V_ADC_L, &val, false);
+		//ret = regmap_read(axp->regmap, AXP20X_ACIN_V_ADC_H, &rval_high);
+		//ret |= regmap_read(axp->regmap, AXP20X_ACIN_V_ADC_L, &rval_low);
+		//val = (int)((rval_high << 4) | (rval_low & 0x0F)) * 1700 / 1000;
+		val = val * 1700 / 1000;
 	}
 	else if (strcmp(attr->attr.name, "acin_current") == 0)
 	{
-		ret = regmap_read(axp->regmap, AXP20X_ACIN_I_ADC_H, &rval_high);
-		ret |= regmap_read(axp->regmap, AXP20X_ACIN_I_ADC_L, &rval_low);
-		val = (int)((rval_high << 4) | (rval_low & 0x0F)) * 625 / 1000;
+		ret = axp20x_averaging_helper(axp, AXP20X_ACIN_I_ADC_H, AXP20X_ACIN_I_ADC_L, &val, false);
+		//ret = regmap_read(axp->regmap, AXP20X_ACIN_I_ADC_H, &rval_high);
+		//ret |= regmap_read(axp->regmap, AXP20X_ACIN_I_ADC_L, &rval_low);
+		//val = (int)((rval_high << 4) | (rval_low & 0x0F)) * 625 / 1000;
+		val = val * 625 / 1000;
 	}
 	else if (strcmp(attr->attr.name, "vbus_voltage") == 0)
 	{
@@ -685,12 +711,12 @@ static ssize_t axp20x_show_property(struct device *dev, struct device_attribute 
 	{
 		ret = regmap_read(axp->regmap, AXP20X_IPSOUT_V_HIGH_H, &rval_high);
 		ret |= regmap_read(axp->regmap, AXP20X_IPSOUT_V_HIGH_L, &rval_low);
-		val = (int)((rval_high << 4 | rval_low & 0x0F)) * 1400 / 1000;
+		val = (int)((rval_high << 4) | (rval_low & 0x0F)) * 1400 / 1000;
 	}
 	else
 		return -EINVAL;
 
-	if (ret < 0)
+	if (ret != 0)
 		return ret;
 	return sprintf(buf, "%d\n", val);
 }
@@ -739,8 +765,17 @@ static const struct attribute_group axp20x_sysfs_attr_group = {
 
 static int axp20x_sysfs_init(struct axp20x_dev *axp)
 {
+	int ret;
 	// Enable all ADC channels in first register
-	regmap_write(axp->regmap, AXP20X_ADC_EN1, 0xFF);
+	ret = regmap_write(axp->regmap, AXP20X_ADC_EN1, 0xFF);
+	if (ret != 0)
+		dev_warn(axp->dev, "Unable to enable ADC");
+
+	// Set ADC sampling frequency to 100Hz (default is 25)
+	ret = regmap_update_bits(axp->regmap, AXP20X_ADC_EN2, 0xC0, 0x08);
+	if (ret != 0)
+		dev_warn(axp->dev, "Unable to set ADC frequency");
+
 	return sysfs_create_group(&axp->dev->kobj,
 			&axp20x_sysfs_attr_group);
 }
