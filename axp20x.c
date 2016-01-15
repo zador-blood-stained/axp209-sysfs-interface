@@ -637,6 +637,7 @@ static ssize_t axp20x_read_volatile(struct device *dev, struct device_attribute 
 	struct axp20x_dev *axp = dev_get_drvdata(dev);
 	int val, ret, scale;
 	unsigned int reg, width = 12, offset = 0;
+	bool convert_to_micro = true;
 
 	if (axp == NULL)
 	{
@@ -669,6 +670,7 @@ static ssize_t axp20x_read_volatile(struct device *dev, struct device_attribute 
 		reg = AXP20X_TEMP_ADC_H;
 		scale = 1000;
 		offset = 1447;
+		convert_to_micro = false;
 	}
 	else if (strcmp(attr->attr.name, "battery_ts_voltage") == 0)
 	{
@@ -705,6 +707,8 @@ static ssize_t axp20x_read_volatile(struct device *dev, struct device_attribute 
 		return ret;
 
 	val = ret * scale / 1000 - offset;
+	if (convert_to_micro)
+		val *= 1000;
 
 	return sprintf(buf, "%d\n", val);
 }
@@ -826,15 +830,21 @@ static const struct attribute_group axp20x_sysfs_attr_group = {
 static int axp20x_sysfs_init(struct axp20x_dev *axp)
 {
 	int ret;
+	unsigned int res;
 	// Enable all ADC channels in first register
 	ret = regmap_write(axp->regmap, AXP20X_ADC_EN1, 0xFF);
 	if (ret != 0)
 		dev_warn(axp->dev, "Unable to enable ADC");
 
 	// Set ADC sampling frequency to 100Hz (default is 25)
-	ret = regmap_update_bits(axp->regmap, AXP20X_ADC_EN2, 0xC0, 0x80);
+	// Always measure battery temperature (default: only when charging)
+	ret = regmap_update_bits(axp->regmap, AXP20X_ADC_RATE, 0xC3, 0x83);
 	if (ret != 0)
-		dev_warn(axp->dev, "Unable to set ADC frequency");
+		dev_warn(axp->dev, "Unable to set ADC frequency and TS current output");
+
+	ret = regmap_read(axp->regmap, AXP20X_OFF_CTRL, &res);
+	if (ret == 0 && (res & (1 << 6)) != (1 << 6))
+		dev_warn(axp->dev, "Battery detection is disabled");
 
 	ret = sysfs_create_group(&axp->dev->kobj, &axp20x_sysfs_attr_group);
 	if (ret != 0)
