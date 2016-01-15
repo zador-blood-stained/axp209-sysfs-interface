@@ -1,5 +1,5 @@
 diff --git a/drivers/mfd/axp20x.c b/drivers/mfd/axp20x.c
-index 9842199..8a6c268 100644
+index 9842199..4f4c23b 100644
 --- a/drivers/mfd/axp20x.c
 +++ b/drivers/mfd/axp20x.c
 @@ -26,6 +26,7 @@
@@ -10,45 +10,40 @@ index 9842199..8a6c268 100644
  
  #define AXP20X_OFF	0x80
  
-@@ -606,6 +607,191 @@ static void axp20x_power_off(void)
+@@ -606,6 +607,251 @@ static void axp20x_power_off(void)
  		     AXP20X_OFF);
  }
  
-+static int axp20x_averaging_helper(struct axp20x_dev *axp, unsigned int reg_h,
-+	unsigned int reg_l, unsigned int *val, bool reg_l_5bit)
++static int axp20x_averaging_helper(struct regmap *reg_map, unsigned int reg_h,
++	unsigned int width)
 +{
-+	unsigned int rval_low = 0, rval_high = 0, i;
 +	long acc = 0;
-+	int ret = 0;
++	int ret = 0, i;
 +
 +	for (i = 0; i < 3; i++)
 +	{
-+		ret |= regmap_read(axp->regmap, reg_h, &rval_high);
-+		ret |= regmap_read(axp->regmap, reg_l, &rval_low);
-+		acc += (int)((rval_high << (reg_l_5bit ? 5 : 4)) | (rval_low & (reg_l_5bit ? 0x001F : 0x000F)));
++		ret = axp20x_read_variable_width(reg_map, reg_h, width);
++		if (ret < 0)
++			return ret;
++		acc += ret;
 +		// For 100Hz sampling frequency
 +		msleep(20);
 +	}
 +	acc /= 3;
-+	*val = (int)acc;
++	ret = (int)acc;
 +
 +	return ret;
 +}
 +
 +/*
-+ * axp_show_property() - get sysfs property for AXP209
-+ * @dev:       pointer to the device structure
-+ * @attr:      pointer to the device_attribute structure
-+ * @val:       pointer to the output buffer
-+ *
-+ * This function gets called when an application tries to read sysfs property
-+ * Returns error code in case of failure else 0 (on success)
-+ */
-+static ssize_t axp20x_show_property(struct device *dev, struct device_attribute *attr, char *buf)
++	sysfs read hendlers
++*/
++
++static ssize_t axp20x_read_volatile(struct device *dev, struct device_attribute *attr, char *buf)
 +{
 +	struct axp20x_dev *axp = dev_get_drvdata(dev);
-+	unsigned int rval_low = 0, rval_high = 0;
-+	int val, ret;
++	int val, ret, scale;
++	unsigned int reg, width = 12, offset = 0;
 +
 +	if (axp == NULL)
 +	{
@@ -58,106 +53,171 @@ index 9842199..8a6c268 100644
 +
 +	if (strcmp(attr->attr.name, "acin_voltage") == 0)
 +	{
-+		ret = axp20x_averaging_helper(axp, AXP20X_ACIN_V_ADC_H, AXP20X_ACIN_V_ADC_L, &val, false);
-+		//ret = regmap_read(axp->regmap, AXP20X_ACIN_V_ADC_H, &rval_high);
-+		//ret |= regmap_read(axp->regmap, AXP20X_ACIN_V_ADC_L, &rval_low);
-+		//val = (int)((rval_high << 4) | (rval_low & 0x0F)) * 1700 / 1000;
-+		val = val * 1700 / 1000;
++		reg = AXP20X_ACIN_V_ADC_H;
++		scale = 1700;
 +	}
 +	else if (strcmp(attr->attr.name, "acin_current") == 0)
 +	{
-+		ret = axp20x_averaging_helper(axp, AXP20X_ACIN_I_ADC_H, AXP20X_ACIN_I_ADC_L, &val, false);
-+		//ret = regmap_read(axp->regmap, AXP20X_ACIN_I_ADC_H, &rval_high);
-+		//ret |= regmap_read(axp->regmap, AXP20X_ACIN_I_ADC_L, &rval_low);
-+		//val = (int)((rval_high << 4) | (rval_low & 0x0F)) * 625 / 1000;
-+		val = val * 625 / 1000;
++		reg = AXP20X_ACIN_I_ADC_H;
++		scale = 625;
 +	}
 +	else if (strcmp(attr->attr.name, "vbus_voltage") == 0)
 +	{
-+		ret = regmap_read(axp->regmap, AXP20X_VBUS_V_ADC_H, &rval_high);
-+		ret |= regmap_read(axp->regmap, AXP20X_VBUS_V_ADC_L, &rval_low);
-+		val = (int)((rval_high << 4) | (rval_low & 0x0F)) * 1700 / 1000;
++		reg = AXP20X_VBUS_V_ADC_H;
++		scale = 1700;
 +	}
 +	else if (strcmp(attr->attr.name, "vbus_current") == 0)
 +	{
-+		ret = regmap_read(axp->regmap, AXP20X_VBUS_I_ADC_H, &rval_high);
-+		ret |= regmap_read(axp->regmap, AXP20X_VBUS_I_ADC_L, &rval_low);
-+		val = (int)((rval_high << 4) | (rval_low & 0x0F)) * 375 / 1000;
++		reg = AXP20X_VBUS_I_ADC_H;
++		scale = 375;
 +	}
 +	else if (strcmp(attr->attr.name, "internal_temp") == 0)
 +	{
-+		ret = regmap_read(axp->regmap, AXP20X_TEMP_ADC_H, &rval_high);
-+		ret |= regmap_read(axp->regmap, AXP20X_TEMP_ADC_L, &rval_low);
-+		val = (int)((rval_high << 4) | (rval_low & 0x0F)) - 1447;
++		reg = AXP20X_TEMP_ADC_H;
++		scale = 1000;
++		offset = 1447;
 +	}
 +	else if (strcmp(attr->attr.name, "battery_ts_voltage") == 0)
 +	{
-+		ret = regmap_read(axp->regmap, AXP20X_TS_IN_H, &rval_high);
-+		ret |= regmap_read(axp->regmap, AXP20X_TS_IN_L, &rval_low);
-+		val = (int)((rval_high << 4) | (rval_low & 0x0F)) * 800 / 1000;
++		reg = AXP20X_TS_IN_H;
++		scale = 800;
 +	}
 +	else if (strcmp(attr->attr.name, "battery_voltage") == 0)
 +	{
-+		ret = regmap_read(axp->regmap, AXP20X_BATT_V_H, &rval_high);
-+		ret |= regmap_read(axp->regmap, AXP20X_BATT_V_L, &rval_low);
-+		val = (int)((rval_high << 4) | (rval_low & 0x0F)) * 1100 / 1000;
++		reg = AXP20X_BATT_V_H;
++		scale = 1100;
 +	}
 +	else if (strcmp(attr->attr.name, "battery_charge_current") == 0)
 +	{
-+		ret = regmap_read(axp->regmap, AXP20X_ACIN_V_ADC_H, &rval_high);
-+		ret |= regmap_read(axp->regmap, AXP20X_ACIN_V_ADC_L, &rval_low);
-+		val = (int)((rval_high << 4) | (rval_low & 0x0F)) * 500 / 1000;
++		reg = AXP20X_BATT_CHRG_I_H;
++		scale = 500;
 +	}
 +	else if (strcmp(attr->attr.name, "battery_discharge_current") == 0)
 +	{
-+		ret = regmap_read(axp->regmap, AXP20X_ACIN_V_ADC_H, &rval_high);
-+		ret |= regmap_read(axp->regmap, AXP20X_ACIN_V_ADC_L, &rval_low);
-+		val = (int)((rval_high << 5) | (rval_low & 0x1F)) * 500 / 1000;
++		reg = AXP20X_BATT_DISCHRG_I_H;
++		scale = 500;
++		width = 13;
 +	}
 +	else if (strcmp(attr->attr.name, "ipsout_voltage") == 0)
 +	{
-+		ret = regmap_read(axp->regmap, AXP20X_IPSOUT_V_HIGH_H, &rval_high);
-+		ret |= regmap_read(axp->regmap, AXP20X_IPSOUT_V_HIGH_L, &rval_low);
-+		val = (int)((rval_high << 4) | (rval_low & 0x0F)) * 1400 / 1000;
++		reg = AXP20X_IPSOUT_V_HIGH_H;
++		scale = 1400;
 +	}
 +	else
 +		return -EINVAL;
 +
-+	if (ret != 0)
++	ret = axp20x_averaging_helper(axp->regmap, reg, width);
++
++	if (ret < 0)
 +		return ret;
++
++	val = ret * scale / 1000 - offset;
++
++	return sprintf(buf, "%d\n", val);
++}
++
++static ssize_t axp20x_read_status(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	struct axp20x_dev *axp = dev_get_drvdata(dev);
++	int val, ret;
++	unsigned int res, reg, bit;
++
++	if (axp == NULL)
++	{
++		dev_err(dev, "AXP sysfs: device pointer is NULL\n");
++		return -EINVAL;
++	}
++
++	if (strcmp(attr->attr.name, "status_acin_connected") == 0)
++	{
++		reg = AXP20X_PWR_INPUT_STATUS;
++		bit = 7;
++	}
++	else if (strcmp(attr->attr.name, "status_acin_used") == 0)
++	{
++		reg = AXP20X_PWR_INPUT_STATUS;
++		bit = 6;
++	}
++	else if (strcmp(attr->attr.name, "status_vbus_connected") == 0)
++	{
++		reg = AXP20X_PWR_INPUT_STATUS;
++		bit = 5;
++	}
++	else if (strcmp(attr->attr.name, "status_vbus_used") == 0)
++	{
++		reg = AXP20X_PWR_INPUT_STATUS;
++		bit = 4;
++	}
++	else if (strcmp(attr->attr.name, "status_battery_charge_in_progress") == 0)
++	{
++		reg = AXP20X_PWR_OP_MODE;
++		bit = 6;
++	}
++	else if (strcmp(attr->attr.name, "status_battery_connected") == 0)
++	{
++		reg = AXP20X_PWR_OP_MODE;
++		bit = 5;
++	}
++	else if (strcmp(attr->attr.name, "status_cold_boot") == 0)
++	{
++		reg = AXP20X_PWR_INPUT_STATUS;
++		bit = 0;
++	}
++	else
++		return -EINVAL;
++
++	ret = regmap_read(axp->regmap, reg, &res);
++	if (ret < 0)
++		return ret;
++
++	val = (res & (1 << bit)) == (1 << bit) ? 1 : 0;
++
 +	return sprintf(buf, "%d\n", val);
 +}
 +
 +/*
 +	sysfs attributes
 +*/
-+static DEVICE_ATTR(acin_voltage, S_IRUGO, axp20x_show_property, NULL);
-+static DEVICE_ATTR(acin_current, S_IRUGO, axp20x_show_property, NULL);
-+static DEVICE_ATTR(vbus_voltage, S_IRUGO, axp20x_show_property, NULL);
-+static DEVICE_ATTR(vbus_current, S_IRUGO, axp20x_show_property, NULL);
-+static DEVICE_ATTR(internal_temp, S_IRUGO, axp20x_show_property, NULL);
-+static DEVICE_ATTR(battery_ts_voltage, S_IRUGO, axp20x_show_property, NULL);
-+static DEVICE_ATTR(battery_voltage, S_IRUGO, axp20x_show_property, NULL);
-+static DEVICE_ATTR(battery_charge_current, S_IRUGO, axp20x_show_property, NULL);
-+static DEVICE_ATTR(battery_discharge_current, S_IRUGO, axp20x_show_property, NULL);
-+static DEVICE_ATTR(ipsout_voltage, S_IRUGO, axp20x_show_property, NULL);
++static DEVICE_ATTR(acin_voltage, S_IRUGO, axp20x_read_volatile, NULL);
++static DEVICE_ATTR(acin_current, S_IRUGO, axp20x_read_volatile, NULL);
++static DEVICE_ATTR(vbus_voltage, S_IRUGO, axp20x_read_volatile, NULL);
++static DEVICE_ATTR(vbus_current, S_IRUGO, axp20x_read_volatile, NULL);
++static DEVICE_ATTR(internal_temp, S_IRUGO, axp20x_read_volatile, NULL);
++static DEVICE_ATTR(battery_ts_voltage, S_IRUGO, axp20x_read_volatile, NULL);
++static DEVICE_ATTR(battery_voltage, S_IRUGO, axp20x_read_volatile, NULL);
++static DEVICE_ATTR(battery_charge_current, S_IRUGO, axp20x_read_volatile, NULL);
++static DEVICE_ATTR(battery_discharge_current, S_IRUGO, axp20x_read_volatile, NULL);
++static DEVICE_ATTR(ipsout_voltage, S_IRUGO, axp20x_read_volatile, NULL);
++
++static DEVICE_ATTR(status_acin_connected, S_IRUGO, axp20x_read_status, NULL);
++static DEVICE_ATTR(status_acin_used, S_IRUGO, axp20x_read_status, NULL);
++static DEVICE_ATTR(status_vbus_connected, S_IRUGO, axp20x_read_status, NULL);
++static DEVICE_ATTR(status_vbus_used, S_IRUGO, axp20x_read_status, NULL);
++static DEVICE_ATTR(status_battery_charge_in_progress, S_IRUGO, axp20x_read_status, NULL);
++static DEVICE_ATTR(status_battery_connected, S_IRUGO, axp20x_read_status, NULL);
++static DEVICE_ATTR(status_cold_boot, S_IRUGO, axp20x_read_status, NULL);
++
 +
 +static struct attribute *axp20x_sysfs_attributes[] = {
 +
 +	&dev_attr_acin_voltage.attr,
 +	&dev_attr_acin_current.attr,
-+
 +	&dev_attr_vbus_voltage.attr,
 +	&dev_attr_vbus_current.attr,
-+
 +	&dev_attr_internal_temp.attr,
-+
 +	&dev_attr_battery_ts_voltage.attr,
 +	&dev_attr_battery_voltage.attr,
 +	&dev_attr_battery_charge_current.attr,
 +	&dev_attr_battery_discharge_current.attr,
-+
 +	&dev_attr_ipsout_voltage.attr,
++
++	&dev_attr_status_acin_connected.attr,
++	&dev_attr_status_acin_used.attr,
++	&dev_attr_status_vbus_connected.attr,
++	&dev_attr_status_vbus_used.attr,
++	&dev_attr_status_battery_charge_in_progress.attr,
++	&dev_attr_status_battery_connected.attr,
++	&dev_attr_status_cold_boot.attr,
 +
 +	NULL,
 +};
@@ -167,7 +227,7 @@ index 9842199..8a6c268 100644
 +};
 +
 +/*
-+	sysfs functions
++	sysfs register/inregister functions
 +*/
 +
 +static int axp20x_sysfs_init(struct axp20x_dev *axp)
@@ -186,7 +246,7 @@ index 9842199..8a6c268 100644
 +	ret = sysfs_create_group(&axp->dev->kobj, &axp20x_sysfs_attr_group);
 +	if (ret != 0)
 +		dev_warn(axp->dev, "Unable to register sysfs group");
-+	
++
 +	ret = sysfs_create_link_nowarn(power_kobj, &axp->dev->kobj, "axp_pmu");
 +	if (ret != 0)
 +		dev_warn(axp->dev, "Unable to create sysfs symlink");
@@ -202,7 +262,7 @@ index 9842199..8a6c268 100644
  static int axp20x_match_device(struct axp20x_dev *axp20x, struct device *dev)
  {
  	const struct acpi_device_id *acpi_id;
-@@ -711,6 +897,10 @@ static int axp20x_i2c_probe(struct i2c_client *i2c,
+@@ -711,6 +957,10 @@ static int axp20x_i2c_probe(struct i2c_client *i2c,
  		pm_power_off = axp20x_power_off;
  	}
  
@@ -213,7 +273,7 @@ index 9842199..8a6c268 100644
  	dev_info(&i2c->dev, "AXP20X driver loaded\n");
  
  	return 0;
-@@ -720,6 +910,10 @@ static int axp20x_i2c_remove(struct i2c_client *i2c)
+@@ -720,6 +970,10 @@ static int axp20x_i2c_remove(struct i2c_client *i2c)
  {
  	struct axp20x_dev *axp20x = i2c_get_clientdata(i2c);
  
