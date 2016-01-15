@@ -1,5 +1,5 @@
 diff --git a/drivers/mfd/axp20x.c b/drivers/mfd/axp20x.c
-index 9842199..913550c 100644
+index 9842199..8a6c268 100644
 --- a/drivers/mfd/axp20x.c
 +++ b/drivers/mfd/axp20x.c
 @@ -26,6 +26,7 @@
@@ -10,7 +10,7 @@ index 9842199..913550c 100644
  
  #define AXP20X_OFF	0x80
  
-@@ -606,6 +607,184 @@ static void axp20x_power_off(void)
+@@ -606,6 +607,191 @@ static void axp20x_power_off(void)
  		     AXP20X_OFF);
  }
  
@@ -183,19 +183,26 @@ index 9842199..913550c 100644
 +	if (ret != 0)
 +		dev_warn(axp->dev, "Unable to set ADC frequency");
 +
-+	return sysfs_create_group(&axp->dev->kobj,
-+			&axp20x_sysfs_attr_group);
++	ret = sysfs_create_group(&axp->dev->kobj, &axp20x_sysfs_attr_group);
++	if (ret != 0)
++		dev_warn(axp->dev, "Unable to register sysfs group");
++	
++	ret = sysfs_create_link_nowarn(power_kobj, &axp->dev->kobj, "axp_pmu");
++	if (ret != 0)
++		dev_warn(axp->dev, "Unable to create sysfs symlink");
++	return ret;
 +}
 +
 +static void axp20x_sysfs_exit(struct axp20x_dev *axp)
 +{
++	sysfs_delete_link(power_kobj, &axp->dev->kobj, "axp_pmu");
 +	sysfs_remove_group(&axp->dev->kobj, &axp20x_sysfs_attr_group);
 +}
 +
  static int axp20x_match_device(struct axp20x_dev *axp20x, struct device *dev)
  {
  	const struct acpi_device_id *acpi_id;
-@@ -711,6 +890,10 @@ static int axp20x_i2c_probe(struct i2c_client *i2c,
+@@ -711,6 +897,10 @@ static int axp20x_i2c_probe(struct i2c_client *i2c,
  		pm_power_off = axp20x_power_off;
  	}
  
@@ -206,7 +213,7 @@ index 9842199..913550c 100644
  	dev_info(&i2c->dev, "AXP20X driver loaded\n");
  
  	return 0;
-@@ -720,6 +903,10 @@ static int axp20x_i2c_remove(struct i2c_client *i2c)
+@@ -720,6 +910,10 @@ static int axp20x_i2c_remove(struct i2c_client *i2c)
  {
  	struct axp20x_dev *axp20x = i2c_get_clientdata(i2c);
  

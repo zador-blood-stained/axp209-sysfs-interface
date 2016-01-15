@@ -776,12 +776,19 @@ static int axp20x_sysfs_init(struct axp20x_dev *axp)
 	if (ret != 0)
 		dev_warn(axp->dev, "Unable to set ADC frequency");
 
-	return sysfs_create_group(&axp->dev->kobj,
-			&axp20x_sysfs_attr_group);
+	ret = sysfs_create_group(&axp->dev->kobj, &axp20x_sysfs_attr_group);
+	if (ret != 0)
+		dev_warn(axp->dev, "Unable to register sysfs group");
+
+	ret = sysfs_create_link_nowarn(power_kobj, &axp->dev->kobj, "axp_pmu");
+	if (ret != 0)
+		dev_warn(axp->dev, "Unable to create sysfs symlink");
+	return ret;
 }
 
 static void axp20x_sysfs_exit(struct axp20x_dev *axp)
 {
+	sysfs_delete_link(power_kobj, &axp->dev->kobj, "axp_pmu");
 	sysfs_remove_group(&axp->dev->kobj, &axp20x_sysfs_attr_group);
 }
 
