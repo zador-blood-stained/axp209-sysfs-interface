@@ -637,7 +637,6 @@ static ssize_t axp20x_read_volatile(struct device *dev, struct device_attribute 
 	struct axp20x_dev *axp = dev_get_drvdata(dev);
 	int val, ret, scale;
 	unsigned int reg, width = 12, offset = 0;
-	bool convert_to_micro = true;
 
 	if (axp == NULL)
 	{
@@ -668,9 +667,8 @@ static ssize_t axp20x_read_volatile(struct device *dev, struct device_attribute 
 	else if (strcmp(attr->attr.name, "internal_temp") == 0)
 	{
 		reg = AXP20X_TEMP_ADC_H;
-		scale = 1000;
+		scale = 1;
 		offset = 1447;
-		convert_to_micro = false;
 	}
 	else if (strcmp(attr->attr.name, "battery_ts_voltage") == 0)
 	{
@@ -706,9 +704,7 @@ static ssize_t axp20x_read_volatile(struct device *dev, struct device_attribute 
 	if (ret < 0)
 		return ret;
 
-	val = ret * scale / 1000 - offset;
-	if (convert_to_micro)
-		val *= 1000;
+	val = ret * scale - offset;
 
 	return sprintf(buf, "%d\n", val);
 }
@@ -843,9 +839,12 @@ static int axp20x_sysfs_init(struct axp20x_dev *axp)
 		dev_warn(axp->dev, "Unable to set ADC frequency and TS current output");
 
 	ret = regmap_read(axp->regmap, AXP20X_OFF_CTRL, &res);
-	if (ret == 0 && (res & (1 << 6)) != (1 << 6))
-		dev_warn(axp->dev, "Battery detection is disabled");
-
+	if (ret == 0 && (res & 0x40) != 0x40) {
+		dev_warn(axp->dev, "Battery detection is disabled, enabling");
+		ret = regmap_update_bits(axp->regmap, AXP20X_OFF_CTRL, 0x40, 0x40);
+		if (ret != 0)
+			dev_warn(axp->dev, "Unable to enable battery detection");
+	}
 	ret = sysfs_create_group(&axp->dev->kobj, &axp20x_sysfs_attr_group);
 	if (ret != 0)
 		dev_warn(axp->dev, "Unable to register sysfs group");
