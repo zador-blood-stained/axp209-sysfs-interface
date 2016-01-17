@@ -631,42 +631,17 @@ static ssize_t axp20x_read_special(struct kobject *kobj, struct kobj_attribute *
 				ret |= regmap_read(axp->regmap, AXP20X_PWR_BATT_H + i, &res);
 				lval1 |= res << (8 * (2 - i));
 			}
-			//ret = regmap_read(axp->regmap, AXP20X_PWR_BATT_L, &res);
-			//lval1 = res;
-			//ret |= regmap_read(axp->regmap, AXP20X_PWR_BATT_M, &res);
-			//lval1 |= res << 8;
-			//ret |= regmap_read(axp->regmap, AXP20X_PWR_BATT_H, &res);
-			//lval1 |= res << 16;
-
 			lval = 2 * lval1 * 1100 * 500 / 1000 / 1000;
 		}
-		else if (strcmp(attr->attr.name, "energy") == 0) {
+		else if (strcmp(attr->attr.name, "capacity") == 0) {
 			for (i = 0; i < 4; i++) {
 				ret |= regmap_read(axp->regmap, AXP20X_CHRG_CC_31_24 + i, &res);
 				lval1 |= res << (8 * (3 - i));
 			}
-			//ret = regmap_read(axp->regmap, AXP20X_CHRG_CC_7_0, &res);
-			//lval1 = res;
-			//ret |= regmap_read(axp->regmap, AXP20X_CHRG_CC_15_8, &res);
-			//lval1 |= res << 8;
-			//ret = regmap_read(axp->regmap, AXP20X_CHRG_CC_23_16, &res);
-			//lval1 |= res << 16;
-			//ret = regmap_read(axp->regmap, AXP20X_CHRG_CC_31_24, &res);
-			//lval1 |= res << 24;
-
 			for (i = 0; i < 4; i++) {
 				ret |= regmap_read(axp->regmap, AXP20X_DISCHRG_CC_31_24 + i, &res);
 				lval2 |= res << (8 * (3 - i));
 			}
-			//ret |= regmap_read(axp->regmap, AXP20X_DISCHRG_CC_7_0, &res);
-			//lval2 = res;
-			//ret |= regmap_read(axp->regmap, AXP20X_DISCHRG_CC_15_8, &res);
-			//lval2 |= res << 8;
-			//ret = regmap_read(axp->regmap, AXP20X_DISCHRG_CC_23_16, &res);
-			//lval2 |= res << 16;
-			//ret = regmap_read(axp->regmap, AXP20X_DISCHRG_CC_31_24, &res);
-			//lval2 |= res << 24;
-
 			lval = 65536 * 500 * (lval1 - lval2) / 3600 / 100;
 		}
 		else if (strcmp(attr->attr.name, "percentage") == 0) {
@@ -683,7 +658,6 @@ static ssize_t axp20x_read_special(struct kobject *kobj, struct kobj_attribute *
 		dev_warn(axp->dev, "Unable to read parameter: %d\n", ret);
 		return ret;
 	}
-
 	return sprintf(buf, "%d\n", lval);
 }
 
@@ -790,9 +764,7 @@ static ssize_t axp20x_read_status(struct kobject *kobj, struct kobj_attribute *a
 		dev_warn(axp->dev, "Unable to read parameter: %d\n", ret);
 		return ret;
 	}
-
 	val = (res & BIT(bit)) == BIT(bit) ? 1 : 0;
-
 	return sprintf(buf, "%d\n", val);
 }
 
@@ -949,9 +921,7 @@ static ssize_t axp20x_read_volatile(struct kobject *kobj, struct kobj_attribute 
 		dev_warn(axp->dev, "Unable to read parameter: %d\n", ret);
 		return ret;
 	}
-
 	val = ret * scale - offset;
-
 	return sprintf(buf, "%d\n", val);
 }
 
@@ -1002,7 +972,7 @@ static struct kobj_attribute batt_discharge_current = __ATTR(discharge_current, 
 static struct kobj_attribute batt_ts_voltage = __ATTR(ts_voltage, S_IRUGO, axp20x_read_volatile, NULL);
 static struct kobj_attribute batt_consumption = __ATTR(consumption, S_IRUGO, axp20x_read_special, NULL);
 static struct kobj_attribute batt_percentage = __ATTR(percentage, S_IRUGO, axp20x_read_special, NULL);
-static struct kobj_attribute batt_energy = __ATTR(energy, S_IRUGO, axp20x_read_special, NULL);
+static struct kobj_attribute batt_capacity = __ATTR(capacity, S_IRUGO, axp20x_read_special, NULL);
 static struct kobj_attribute batt_connected = __ATTR(connected, S_IRUGO, axp20x_read_status, NULL);
 static struct kobj_attribute batt_charging = __ATTR(charging, S_IRUGO, axp20x_read_status, NULL);
 
@@ -1012,7 +982,7 @@ static struct attribute *axp20x_attributes_battery[] = {
 	&batt_ts_voltage.attr,
 	&batt_consumption.attr,
 	&batt_percentage.attr,
-	&batt_energy.attr,
+	&batt_capacity.attr,
 	&batt_connected.attr,
 	&batt_charging.attr,
 	NULL,
