@@ -638,7 +638,7 @@ static ssize_t axp20x_read_special(struct kobject *kobj, struct kobj_attribute *
 			//ret |= regmap_read(axp->regmap, AXP20X_PWR_BATT_H, &res);
 			//lval1 |= res << 16;
 
-			lval = lval1 * 2 * 1100 * 500;
+			lval = 2 * lval1 * 1100 * 500 / 1000 / 1000;
 		}
 		else if (strcmp(attr->attr.name, "energy") == 0) {
 			for (i = 0; i < 4; i++) {
@@ -667,7 +667,7 @@ static ssize_t axp20x_read_special(struct kobject *kobj, struct kobj_attribute *
 			//ret = regmap_read(axp->regmap, AXP20X_DISCHRG_CC_31_24, &res);
 			//lval2 |= res << 24;
 
-			lval = 65536 * 500 * (lval1 - lval2) / 3600 / 100 * 1000;
+			lval = 65536 * 500 * (lval1 - lval2) / 3600 / 100;
 		}
 		else if (strcmp(attr->attr.name, "percentage") == 0) {
 			ret = regmap_read(axp->regmap, AXP20X_FG_RES, &res);
@@ -1301,7 +1301,7 @@ static int axp20x_i2c_probe(struct i2c_client *i2c,
 		pm_power_off = axp20x_power_off;
 	}
 
-	if (axp20x->variant == AXP209_ID) {
+	if (axp20x->variant == AXP209_ID || axp20x->variant == AXP202_ID) {
 		axp20x_sysfs_init(axp20x);
 	}
 
@@ -1314,7 +1314,7 @@ static int axp20x_i2c_remove(struct i2c_client *i2c)
 {
 	struct axp20x_dev *axp20x = i2c_get_clientdata(i2c);
 
-	if (axp20x->variant == AXP209_ID) {
+	if (axp20x->variant == AXP209_ID || axp20x->variant == AXP202_ID) {
 		axp20x_sysfs_exit(axp20x);
 	}
 
