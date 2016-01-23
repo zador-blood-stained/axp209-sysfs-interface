@@ -1,5 +1,5 @@
 diff --git a/drivers/mfd/axp20x.c b/drivers/mfd/axp20x.c
-index 9842199..f1e490c 100644
+index 9842199..0d7f012 100644
 --- a/drivers/mfd/axp20x.c
 +++ b/drivers/mfd/axp20x.c
 @@ -26,6 +26,7 @@
@@ -10,7 +10,7 @@ index 9842199..f1e490c 100644
  
  #define AXP20X_OFF	0x80
  
-@@ -606,6 +607,469 @@ static void axp20x_power_off(void)
+@@ -606,6 +607,457 @@ static void axp20x_power_off(void)
  		     AXP20X_OFF);
  }
  
@@ -22,13 +22,10 @@ index 9842199..f1e490c 100644
 +	unsigned int res;
 +	s32 lval;
 +	u32 lval1 = 0, lval2 = 0;
-+	struct axp20x_dev *axp;
-+	const char *subsystem;
-+	struct device *dev;
 +
-+	subsystem = kobject_name(kobj);
-+	dev = kobj_to_device(kobj->parent);
-+	axp = dev_get_drvdata(dev);
++	const char *subsystem = kobject_name(kobj);
++	struct device *dev = kobj_to_device(kobj->parent);
++	struct axp20x_dev *axp = dev_get_drvdata(dev);
 +
 +	dev_dbg(axp->dev, "read_cumulative: reading attribute %s of object %s\n", attr->attr.name, subsystem);
 +
@@ -59,13 +56,10 @@ index 9842199..f1e490c 100644
 +{
 +	int val, ret;
 +	unsigned int res, reg, bit;
-+	struct device *dev;
-+	struct axp20x_dev *axp;
-+	const char *subsystem;
 +
-+	subsystem = kobject_name(kobj);
-+	dev = kobj_to_device(kobj->parent);
-+	axp = dev_get_drvdata(dev);
++	const char *subsystem = kobject_name(kobj);
++	struct device *dev = kobj_to_device(kobj->parent);
++	struct axp20x_dev *axp = dev_get_drvdata(dev);
 +
 +	dev_dbg(axp->dev, "write_bool: writing attribute %s of object %s\n", attr->attr.name, subsystem);
 +
@@ -145,13 +139,10 @@ index 9842199..f1e490c 100644
 +{
 +	int var, ret;
 +	unsigned int reg, bit;
-+	struct device *dev;
-+	struct axp20x_dev *axp;
-+	const char *subsystem;
 +
-+	subsystem = kobject_name(kobj);
-+	dev = kobj_to_device(kobj->parent);
-+	axp = dev_get_drvdata(dev);
++	const char *subsystem = kobject_name(kobj);
++	struct device *dev = kobj_to_device(kobj->parent);
++	struct axp20x_dev *axp = dev_get_drvdata(dev);
 +
 +	dev_dbg(axp->dev, "write_bool: writing attribute %s of object %s", attr->attr.name, subsystem);
 +
@@ -198,13 +189,10 @@ index 9842199..f1e490c 100644
 +{
 +	int val, ret, scale;
 +	unsigned int reg, width = 12, offset = 0;
-+	struct device *dev;
-+	struct axp20x_dev *axp;
-+	const char *subsystem;
 +
-+	subsystem = kobject_name(kobj);
-+	dev = kobj_to_device(kobj->parent);
-+	axp = dev_get_drvdata(dev);
++	const char *subsystem = kobject_name(kobj);
++	struct device *dev = kobj_to_device(kobj->parent);
++	struct axp20x_dev *axp = dev_get_drvdata(dev);
 +
 +	dev_dbg(axp->dev, "read_int: reading attribute %s of object %s\n", attr->attr.name, subsystem);
 +
@@ -480,7 +468,7 @@ index 9842199..f1e490c 100644
  static int axp20x_match_device(struct axp20x_dev *axp20x, struct device *dev)
  {
  	const struct acpi_device_id *acpi_id;
-@@ -711,6 +1175,10 @@ static int axp20x_i2c_probe(struct i2c_client *i2c,
+@@ -711,6 +1163,10 @@ static int axp20x_i2c_probe(struct i2c_client *i2c,
  		pm_power_off = axp20x_power_off;
  	}
  
@@ -491,7 +479,7 @@ index 9842199..f1e490c 100644
  	dev_info(&i2c->dev, "AXP20X driver loaded\n");
  
  	return 0;
-@@ -720,6 +1188,10 @@ static int axp20x_i2c_remove(struct i2c_client *i2c)
+@@ -720,6 +1176,10 @@ static int axp20x_i2c_remove(struct i2c_client *i2c)
  {
  	struct axp20x_dev *axp20x = i2c_get_clientdata(i2c);
  

@@ -615,13 +615,10 @@ static ssize_t axp20x_read_special(struct kobject *kobj, struct kobj_attribute *
 	unsigned int res;
 	s32 lval;
 	u32 lval1 = 0, lval2 = 0;
-	struct axp20x_dev *axp;
-	const char *subsystem;
-	struct device *dev;
 
-	subsystem = kobject_name(kobj);
-	dev = kobj_to_device(kobj->parent);
-	axp = dev_get_drvdata(dev);
+	const char *subsystem = kobject_name(kobj);
+	struct device *dev = kobj_to_device(kobj->parent);
+	struct axp20x_dev *axp = dev_get_drvdata(dev);
 
 	dev_dbg(axp->dev, "read_cumulative: reading attribute %s of object %s\n", attr->attr.name, subsystem);
 
@@ -652,13 +649,10 @@ static ssize_t axp20x_read_bool(struct kobject *kobj, struct kobj_attribute *att
 {
 	int val, ret;
 	unsigned int res, reg, bit;
-	struct device *dev;
-	struct axp20x_dev *axp;
-	const char *subsystem;
 
-	subsystem = kobject_name(kobj);
-	dev = kobj_to_device(kobj->parent);
-	axp = dev_get_drvdata(dev);
+	const char *subsystem = kobject_name(kobj);
+	struct device *dev = kobj_to_device(kobj->parent);
+	struct axp20x_dev *axp = dev_get_drvdata(dev);
 
 	dev_dbg(axp->dev, "write_bool: writing attribute %s of object %s\n", attr->attr.name, subsystem);
 
@@ -738,13 +732,10 @@ static ssize_t axp20x_write_bool(struct kobject *kobj, struct kobj_attribute *at
 {
 	int var, ret;
 	unsigned int reg, bit;
-	struct device *dev;
-	struct axp20x_dev *axp;
-	const char *subsystem;
 
-	subsystem = kobject_name(kobj);
-	dev = kobj_to_device(kobj->parent);
-	axp = dev_get_drvdata(dev);
+	const char *subsystem = kobject_name(kobj);
+	struct device *dev = kobj_to_device(kobj->parent);
+	struct axp20x_dev *axp = dev_get_drvdata(dev);
 
 	dev_dbg(axp->dev, "write_bool: writing attribute %s of object %s", attr->attr.name, subsystem);
 
@@ -791,13 +782,10 @@ static ssize_t axp20x_read_int(struct kobject *kobj, struct kobj_attribute *attr
 {
 	int val, ret, scale;
 	unsigned int reg, width = 12, offset = 0;
-	struct device *dev;
-	struct axp20x_dev *axp;
-	const char *subsystem;
 
-	subsystem = kobject_name(kobj);
-	dev = kobj_to_device(kobj->parent);
-	axp = dev_get_drvdata(dev);
+	const char *subsystem = kobject_name(kobj);
+	struct device *dev = kobj_to_device(kobj->parent);
+	struct axp20x_dev *axp = dev_get_drvdata(dev);
 
 	dev_dbg(axp->dev, "read_int: reading attribute %s of object %s\n", attr->attr.name, subsystem);
 
