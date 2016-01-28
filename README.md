@@ -1,5 +1,8 @@
 ﻿[WIP] sysfs entries for axp20x mfd driver
 ===========
+
+For mainline kernel 4.4+
+
 ```bash
 ➜  ~  % ls /sys/power/axp_pmu/{ac,vbus,battery,charger,pmu,control}
 /sys/power/axp_pmu/ac:
@@ -15,7 +18,7 @@ amperage  cell_activation  charging  low_power
 reset_charge_counter  set_vbus_direct_mode
 
 /sys/power/axp_pmu/pmu:
-cold_boot  overheat  temp  voltage
+overheat  temp  voltage
 
 /sys/power/axp_pmu/vbus:
 amperage  connected  strong  used  voltage
@@ -52,4 +55,4 @@ Properties table
 | charger   | cell_activation       | boolean | -    | 01h[3]   | Mode for charging deeply discharged cell |
 | charger   | low_power             | boolean | -    | 01h[2]   | Not enough input power |
 | control   | set_vbus_direct_mode  | boolean | -    | 30h[6]   |          |
-| control   | reset_coulomb_counter | boolean | -    | B8h[5]   |          |
+| control   | reset_charge_counter  | boolean | -    | B8h[5]   |          |
