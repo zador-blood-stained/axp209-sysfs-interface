@@ -687,10 +687,7 @@ static ssize_t axp20x_read_bool(struct kobject *kobj, struct kobj_attribute *att
 		} else
 			return -EINVAL;
 	} else if (strcmp(subsystem, "pmu") == 0) {
-		if (strcmp(attr->attr.name, "cold_boot") == 0) {
-			reg = AXP20X_PWR_INPUT_STATUS;
-			bit = 0;
-		} else if (strcmp(attr->attr.name, "overheat") == 0) {
+		if (strcmp(attr->attr.name, "overheat") == 0) {
 			reg = AXP20X_PWR_OP_MODE;
 			bit = 7;
 		} else
@@ -916,13 +913,11 @@ static const struct attribute_group axp20x_group_battery = {
 /* PMU */
 static struct kobj_attribute pmu_temp = __ATTR(temp, S_IRUGO, axp20x_read_int, NULL);
 static struct kobj_attribute pmu_voltage = __ATTR(voltage, S_IRUGO, axp20x_read_int, NULL);
-static struct kobj_attribute pmu_cold_boot = __ATTR(cold_boot, S_IRUGO, axp20x_read_bool, NULL);
 static struct kobj_attribute pmu_overheat = __ATTR(overheat, S_IRUGO, axp20x_read_bool, NULL);
 
 static struct attribute *axp20x_attributes_pmu[] = {
 	&pmu_temp.attr,
 	&pmu_voltage.attr,
-	&pmu_cold_boot.attr,
 	&pmu_overheat.attr,
 	NULL,
 };

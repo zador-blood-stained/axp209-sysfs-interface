@@ -46,7 +46,6 @@ Properties table
 | battery   | charging              | boolean | -    | 00h[7]   | Direction of current |
 | pmu       | temp                  | integer | m°C  | 5Eh:5Fh  |          |
 | pmu       | voltage               | integer | µV   | 7Eh:7Fh  |          |
-| pmu       | cold_boot             | boolean | -    | 00h[0]   |          |
 | pmu       | overheat              | boolean | -    | 01h[7]   |          |
 | charger   | amperage              | integer | µA   | 7Ah:7Bh  | Charge current |
 | charger   | charging              | boolean | -    | 01h[6]   |          |
