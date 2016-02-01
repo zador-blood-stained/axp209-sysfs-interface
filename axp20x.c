@@ -620,20 +620,19 @@ int axp20x_get_adc_freq(struct axp20x_dev *axp)
 		dev_warn(axp->dev, "Unable to read ADC sampling frequency: %d\n", ret);
 		return freq;
 	}
-	res &= 0xc0;
-	switch(res >> 6) {
-		case 0:
-			freq = 25;
-			break;
-		case 1:
-			freq = 50;
-			break;
-		case 2:
-			freq = 100;
-			break;
-		case 3:
-			freq = 200;
-			break;
+	switch ((res & 0xC0) >> 6) {
+	case 0:
+		freq = 25;
+		break;
+	case 1:
+		freq = 50;
+		break;
+	case 2:
+		freq = 100;
+		break;
+	case 3:
+		freq = 200;
+		break;
 	}
 	return freq;
 }
@@ -1032,7 +1031,7 @@ static int axp20x_sysfs_init(struct axp20x_dev *axp)
 	int ret;
 	unsigned int res;
 
-	/* Enable all ADC channels in first register */
+	/* Enable all ADC channels in the first register */
 	ret = regmap_write(axp->regmap, AXP20X_ADC_EN1, 0xFF);
 	if (ret)
 		dev_warn(axp->dev, "Unable to enable ADC: %d", ret);
@@ -1041,7 +1040,7 @@ static int axp20x_sysfs_init(struct axp20x_dev *axp)
 	 * Set ADC sampling frequency to 100Hz (default is 25)
 	 * Always measure battery temperature (default: only when charging)
 	 */
-	ret = regmap_update_bits(axp->regmap, AXP20X_ADC_RATE, 0xC3, 0x83);
+	ret = regmap_update_bits(axp->regmap, AXP20X_ADC_RATE, 0xC3, 0x82);
 	if (ret)
 		dev_warn(axp->dev, "Unable to set ADC frequency and TS current output: %d", ret);
 
@@ -1049,7 +1048,7 @@ static int axp20x_sysfs_init(struct axp20x_dev *axp)
 	ret = regmap_update_bits(axp->regmap, AXP20X_FG_RES, 0x80, 0x00);
 	if (ret)
 		dev_warn(axp->dev, "Unable to enable battery fuel gauge: %d", ret);
-	ret = regmap_update_bits(axp->regmap, AXP20X_CC_CTRL, 0xC0, 0x00);
+	/* ret = regmap_update_bits(axp->regmap, AXP20X_CC_CTRL, 0xC0, 0x00); */
 	ret |= regmap_update_bits(axp->regmap, AXP20X_CC_CTRL, 0xC0, 0x80);
 	if (ret)
 		dev_warn(axp->dev, "Unable to enable battery charge counter: %d", ret);
