@@ -2,6 +2,7 @@
 ===========
 
 For mainline kernel 4.4+
+The main purpose of this patch is creating sysfs interface to get information from AXP202/209 PMU until proper power driver is implemented in mainline kernel.
 
 ```bash
 ➜  ~  % ls /sys/power/axp_pmu/{ac,vbus,battery,charger,pmu,control}
@@ -15,7 +16,7 @@ amperage  capacity  charge  charging  connected  power  ts_voltage  voltage
 amperage  cell_activation  charging  low_power
 
 /sys/power/axp_pmu/control:
-reset_charge_counter  set_vbus_direct_mode
+charge_rtc_battery  reset_charge_counter  set_vbus_direct_mode
 
 /sys/power/axp_pmu/pmu:
 overheat  temp  voltage
