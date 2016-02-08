@@ -56,3 +56,4 @@ Properties table
 | charger   | low_power             | boolean | -    | 01h[2]   | Not enough input power |
 | control   | set_vbus_direct_mode  | boolean | -    | 30h[6]   |          |
 | control   | reset_charge_counter  | boolean | -    | B8h[5]   |          |
+| control   | charge_rtc_battery    | boolean | -    | 35h[7]   |          |

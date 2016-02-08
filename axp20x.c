@@ -692,7 +692,7 @@ static ssize_t axp20x_read_bool(struct kobject *kobj, struct kobj_attribute *att
 	struct device *dev = kobj_to_device(kobj->parent);
 	struct axp20x_dev *axp = dev_get_drvdata(dev);
 
-	dev_dbg(axp->dev, "read_bool: writing attribute %s of object %s\n", attr->attr.name, subsystem);
+	dev_dbg(axp->dev, "read_bool: reading attribute %s of object %s\n", attr->attr.name, subsystem);
 
 	if (strcmp(subsystem, "ac") == 0) {
 		if (strcmp(attr->attr.name, "connected") == 0) {
@@ -749,6 +749,9 @@ static ssize_t axp20x_read_bool(struct kobject *kobj, struct kobj_attribute *att
 		} else if (strcmp(attr->attr.name, "reset_charge_counter") == 0) {
 			reg = AXP20X_CC_CTRL;
 			bit = 5;
+		} else if (strcmp(attr->attr.name, "charge_rtc_battery") == 0) {
+			reg = AXP20X_CHRG_BAK_CTRL;
+			bit = 7;
 		} else
 			return -EINVAL;
 	} else
@@ -784,6 +787,9 @@ static ssize_t axp20x_write_bool(struct kobject *kobj, struct kobj_attribute *at
 		} else if (strcmp(attr->attr.name, "reset_charge_counter") == 0) {
 			reg = AXP20X_CC_CTRL;
 			bit = 5;
+		} else if (strcmp(attr->attr.name, "charge_rtc_battery") == 0) {
+			reg = AXP20X_CHRG_BAK_CTRL;
+			bit = 7;
 		} else
 			return -EINVAL;
 	} else
@@ -984,10 +990,13 @@ static struct kobj_attribute control_vbus_direct_mode = __ATTR(set_vbus_direct_m
 	axp20x_read_bool, axp20x_write_bool);
 static struct kobj_attribute control_reset_charge_counter = __ATTR(reset_charge_counter, S_IRUGO | S_IWUSR,
 	axp20x_read_bool, axp20x_write_bool);
+static struct kobj_attribute control_charge_rtc_battery = __ATTR(charge_rtc_battery, S_IRUGO | S_IWUSR,
+	axp20x_read_bool, axp20x_write_bool);
 
 static struct attribute *axp20x_attributes_control[] = {
 	&control_vbus_direct_mode.attr,
 	&control_reset_charge_counter.attr,
+	&control_charge_rtc_battery.attr,
 	NULL,
 };
 
@@ -1064,6 +1073,16 @@ static int axp20x_sysfs_init(struct axp20x_dev *axp)
 		}
 	} else
 		dev_warn(axp->dev, "Unable to read register AXP20X_OFF_CTRL: %d", ret);
+
+	/* Get info about backup (RTC) battery */
+	ret = regmap_read(axp->regmap, AXP20X_CHRG_BAK_CTRL, &res);
+	if (ret == 0) {
+		dev_info(axp->dev, "Backup (RTC) battery charging is %s",
+			(res & 0x80) == 0x80 ? "enabled" : "disabled");
+		if ((res & 0x60) != 0x20)
+			dev_warn(axp->dev, "Backup (RTC) battery target voltage is not 3.0V");
+	} else
+		dev_warn(axp->dev, "Unable to read register AXP20X_CHRG_BAK_CTRL: %d", ret);
 
 	axp20x_sysfs_create_subgroup("ac", axp, subsystems.ac, &axp20x_group_ac);
 	axp20x_sysfs_create_subgroup("vbus", axp, subsystems.vbus, &axp20x_group_vbus);
