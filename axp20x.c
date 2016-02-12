@@ -637,6 +637,44 @@ int axp20x_get_adc_freq(struct axp20x_dev *axp)
 	return freq;
 }
 
+static ssize_t axp20x_sysfs_read_bin_file(struct file *filp,
+				struct kobject *kobj,
+				struct bin_attribute *bin_attr,
+				char *buf, loff_t off, size_t count)
+{
+	int ret;
+
+	struct device *dev = kobj_to_device(kobj);
+	struct axp20x_dev *axp = dev_get_drvdata(dev);
+
+	ret = regmap_raw_read(axp->regmap, AXP20X_OCV(off), buf, count);
+	if (ret < 0)
+	{
+		dev_warn(axp->dev, "read_bin_file: error reading: %d\n", ret);
+		return ret;
+	}
+	return count;
+}
+
+static ssize_t axp20x_sysfs_write_bin_file(struct file *filp,
+				struct kobject *kobj,
+				struct bin_attribute *bin_attr,
+				char *buf, loff_t off, size_t count)
+{
+	int ret;
+
+	struct device *dev = kobj_to_device(kobj);
+	struct axp20x_dev *axp = dev_get_drvdata(dev);
+
+	ret = regmap_raw_write(axp->regmap, AXP20X_OCV(off), buf, count);
+	if (ret < 0)
+	{
+		dev_warn(axp->dev, "write_bin_file: error writing: %d\n", ret);
+		return ret;
+	}
+	return count;
+}
+
 static ssize_t axp20x_read_special(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	int i, freq, ret = 0;
@@ -681,6 +719,45 @@ static ssize_t axp20x_read_special(struct kobject *kobj, struct kobj_attribute *
 		return ret;
 	}
 	return sprintf(buf, "%lld\n", llval);
+}
+
+static ssize_t axp20x_write_int(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int reg, var, ret = 0, scale, width = 12, offset = 0;
+	unsigned int res;
+
+	const char *subsystem = kobject_name(kobj);
+	struct device *dev = kobj_to_device(kobj->parent);
+	struct axp20x_dev *axp = dev_get_drvdata(dev);
+
+	dev_dbg(axp->dev, "write_int: writing attribute %s of object %s\n", attr->attr.name, subsystem);
+
+	ret = kstrtoint(buf, 10, &var);
+	if (ret < 0)
+		return ret;
+
+	if (strcmp(subsystem, "control") == 0) {
+		if (strcmp(attr->attr.name, "battery_rdc") == 0) {
+			reg = AXP20X_RDC_H;
+			scale = 1074;
+			width = 13;
+			offset = 537;
+			/* TODO: Disable & enable fuel gauge */
+		} else
+			return -EINVAL;
+	} else
+		return -EINVAL;
+
+	res = (var + offset) / scale;
+
+	ret = regmap_write_bits(axp->regmap, reg, (1U << (width - 8)) - 1, (res >> 8) & 0xFF);
+	ret |= regmap_write_bits(axp->regmap, reg + 1, 0xFF, res & 0xFF);
+
+	if (ret < 0) {
+		dev_warn(axp->dev, "Unable to write parameter: %d\n", ret);
+		return ret;
+	}
+	return count;
 }
 
 static ssize_t axp20x_read_bool(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
@@ -795,7 +872,7 @@ static ssize_t axp20x_write_bool(struct kobject *kobj, struct kobj_attribute *at
 	} else
 		return -EINVAL;
 
-	ret = regmap_update_bits(axp->regmap, reg, var ? BIT(bit) : 0, BIT(bit));
+	ret = regmap_update_bits(axp->regmap, reg, BIT(bit), var ? BIT(bit) : 0);
 	if (ret)
 		dev_warn(axp->dev, "Unable to write value: %d", ret);
 	return count;
@@ -872,6 +949,14 @@ static ssize_t axp20x_read_int(struct kobject *kobj, struct kobj_attribute *attr
 		if (strcmp(attr->attr.name, "amperage") == 0) {
 			reg = AXP20X_BATT_CHRG_I_H;
 			scale = 500;
+		} else
+			return -EINVAL;
+	} else if (strcmp(subsystem, "control") == 0) {
+		if (strcmp(attr->attr.name, "battery_rdc") == 0) {
+			reg = AXP20X_RDC_H;
+			width = 13;
+			scale = 1074;
+			offset = 537;
 		} else
 			return -EINVAL;
 	} else
@@ -986,17 +1071,20 @@ static const struct attribute_group axp20x_group_charger = {
 };
 
 /* Control (writeable) */
-static struct kobj_attribute control_vbus_direct_mode = __ATTR(set_vbus_direct_mode, S_IRUGO | S_IWUSR,
+static struct kobj_attribute control_vbus_direct_mode = __ATTR(set_vbus_direct_mode, (S_IRUGO | S_IWUSR),
 	axp20x_read_bool, axp20x_write_bool);
-static struct kobj_attribute control_reset_charge_counter = __ATTR(reset_charge_counter, S_IRUGO | S_IWUSR,
+static struct kobj_attribute control_reset_charge_counter = __ATTR(reset_charge_counter, (S_IRUGO | S_IWUSR),
 	axp20x_read_bool, axp20x_write_bool);
-static struct kobj_attribute control_charge_rtc_battery = __ATTR(charge_rtc_battery, S_IRUGO | S_IWUSR,
+static struct kobj_attribute control_charge_rtc_battery = __ATTR(charge_rtc_battery, (S_IRUGO | S_IWUSR),
 	axp20x_read_bool, axp20x_write_bool);
+static struct kobj_attribute control_battery_rdc = __ATTR(battery_rdc, (S_IRUGO | S_IWUSR),
+	axp20x_read_int, axp20x_write_int);
 
 static struct attribute *axp20x_attributes_control[] = {
 	&control_vbus_direct_mode.attr,
 	&control_reset_charge_counter.attr,
 	&control_charge_rtc_battery.attr,
+	&control_battery_rdc.attr,
 	NULL,
 };
 
@@ -1012,6 +1100,9 @@ static struct {
 	struct kobject *charger;
 	struct kobject *control;
 } subsystems;
+
+static struct bin_attribute axp20x_ocv_curve = __BIN_ATTR(ocv_curve, S_IRUGO | S_IWUSR,
+	axp20x_sysfs_read_bin_file, axp20x_sysfs_write_bin_file, AXP20X_OCV_MAX + 1);
 
 static void axp20x_sysfs_create_subgroup(const char name[], struct axp20x_dev *axp,
 	struct kobject *subgroup, const struct attribute_group *attrs)
@@ -1091,6 +1182,10 @@ static int axp20x_sysfs_init(struct axp20x_dev *axp)
 	axp20x_sysfs_create_subgroup("charger", axp, subsystems.charger, &axp20x_group_charger);
 	axp20x_sysfs_create_subgroup("control", axp, subsystems.control, &axp20x_group_control);
 
+	ret = sysfs_create_bin_file(&axp->dev->kobj, &axp20x_ocv_curve);
+	if (ret)
+		dev_warn(axp->dev, "Unable to create sysfs ocv_curve file: %d", ret);
+
 	ret = sysfs_create_link_nowarn(power_kobj, &axp->dev->kobj, "axp_pmu");
 	if (ret)
 		dev_warn(axp->dev, "Unable to create sysfs symlink: %d", ret);
@@ -1100,6 +1195,7 @@ static int axp20x_sysfs_init(struct axp20x_dev *axp)
 static void axp20x_sysfs_exit(struct axp20x_dev *axp)
 {
 	sysfs_delete_link(power_kobj, &axp->dev->kobj, "axp_pmu");
+	sysfs_remove_bin_file(&axp->dev->kobj, &axp20x_ocv_curve);
 	axp20x_sysfs_remove_subgroup(subsystems.control, &axp20x_group_control);
 	axp20x_sysfs_remove_subgroup(subsystems.charger, &axp20x_group_charger);
 	axp20x_sysfs_remove_subgroup(subsystems.pmu, &axp20x_group_pmu);
