@@ -5,7 +5,9 @@ For mainline kernel 4.4+
 The main purpose of this patch is creating sysfs interface to get information from AXP202/209 PMU until proper power driver is implemented in mainline kernel.
 
 ```bash
-➜  ~  % ls /sys/power/axp_pmu/{ac,vbus,battery,charger,pmu,control}
+➜  ~  % ls /sys/power/axp_pmu/{ac,vbus,battery,charger,pmu,control,ocv_curve}
+/sys/power/axp_pmu/ocv_curve
+
 /sys/power/axp_pmu/ac:
 amperage  connected  used  voltage
 
@@ -16,7 +18,7 @@ amperage  capacity  charge  charging  connected  power  ts_voltage  voltage
 amperage  cell_activation  charging  low_power
 
 /sys/power/axp_pmu/control:
-charge_rtc_battery  reset_charge_counter  set_vbus_direct_mode
+battery_rdc  charge_rtc_battery  reset_charge_counter  set_vbus_direct_mode
 
 /sys/power/axp_pmu/pmu:
 overheat  temp  voltage
@@ -58,3 +60,4 @@ Properties table
 | control   | set_vbus_direct_mode  | boolean | -    | 30h[6]   |          |
 | control   | reset_charge_counter  | boolean | -    | B8h[5]   |          |
 | control   | charge_rtc_battery    | boolean | -    | 35h[7]   |          |
+| -         | ocv_curve             | byte[]  | %    | C0h:CFh  |          |
