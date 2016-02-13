@@ -2,7 +2,8 @@
 ===========
 
 For mainline kernel 4.4+
-The main purpose of this patch is creating sysfs interface to get information from AXP202/209 PMU until proper power driver is implemented in mainline kernel.
+
+Main purpose of this patch is creating sysfs interface to get information from AXP202/209 PMU until proper power driver is implemented in mainline kernel.
 
 ```bash
 ➜  ~  % ls /sys/power/axp_pmu/{ac,vbus,battery,charger,pmu,control,ocv_curve}
