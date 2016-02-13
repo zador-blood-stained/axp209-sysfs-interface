@@ -1,5 +1,5 @@
 diff --git a/drivers/mfd/axp20x.c b/drivers/mfd/axp20x.c
-index 9842199..d5f5133 100644
+index 9842199..c313710 100644
 --- a/drivers/mfd/axp20x.c
 +++ b/drivers/mfd/axp20x.c
 @@ -26,6 +26,7 @@
@@ -18,7 +18,7 @@ index 9842199..d5f5133 100644
  	regmap_reg_range(AXP20X_FG_RES, AXP20X_RDC_L),
  };
  
-@@ -606,6 +608,602 @@ static void axp20x_power_off(void)
+@@ -606,6 +608,611 @@ static void axp20x_power_off(void)
  		     AXP20X_OFF);
  }
  
@@ -243,6 +243,9 @@ index 9842199..d5f5133 100644
 +		} else if (strcmp(attr->attr.name, "charge_rtc_battery") == 0) {
 +			reg = AXP20X_CHRG_BAK_CTRL;
 +			bit = 7;
++		} else if (strcmp(attr->attr.name, "disable_fuel_gauge") == 0) {
++			reg = AXP20X_FG_RES;
++			bit = 7;
 +		} else
 +			return -EINVAL;
 +	} else
@@ -280,6 +283,9 @@ index 9842199..d5f5133 100644
 +			bit = 5;
 +		} else if (strcmp(attr->attr.name, "charge_rtc_battery") == 0) {
 +			reg = AXP20X_CHRG_BAK_CTRL;
++			bit = 7;
++		} else if (strcmp(attr->attr.name, "disable_fuel_gauge") == 0) {
++			reg = AXP20X_FG_RES;
 +			bit = 7;
 +		} else
 +			return -EINVAL;
@@ -491,6 +497,8 @@ index 9842199..d5f5133 100644
 +	axp20x_read_bool, axp20x_write_bool);
 +static struct kobj_attribute control_charge_rtc_battery = __ATTR(charge_rtc_battery, (S_IRUGO | S_IWUSR),
 +	axp20x_read_bool, axp20x_write_bool);
++static struct kobj_attribute control_disable_fuel_gauge = __ATTR(disable_fuel_gauge, (S_IRUGO | S_IWUSR),
++	axp20x_read_bool, axp20x_write_bool);
 +static struct kobj_attribute control_battery_rdc = __ATTR(battery_rdc, (S_IRUGO | S_IWUSR),
 +	axp20x_read_int, axp20x_write_int);
 +
@@ -498,6 +506,7 @@ index 9842199..d5f5133 100644
 +	&control_vbus_direct_mode.attr,
 +	&control_reset_charge_counter.attr,
 +	&control_charge_rtc_battery.attr,
++	&control_disable_fuel_gauge.attr,
 +	&control_battery_rdc.attr,
 +	NULL,
 +};
@@ -621,7 +630,7 @@ index 9842199..d5f5133 100644
  static int axp20x_match_device(struct axp20x_dev *axp20x, struct device *dev)
  {
  	const struct acpi_device_id *acpi_id;
-@@ -711,6 +1309,10 @@ static int axp20x_i2c_probe(struct i2c_client *i2c,
+@@ -711,6 +1318,10 @@ static int axp20x_i2c_probe(struct i2c_client *i2c,
  		pm_power_off = axp20x_power_off;
  	}
  
@@ -632,7 +641,7 @@ index 9842199..d5f5133 100644
  	dev_info(&i2c->dev, "AXP20X driver loaded\n");
  
  	return 0;
-@@ -720,6 +1322,10 @@ static int axp20x_i2c_remove(struct i2c_client *i2c)
+@@ -720,6 +1331,10 @@ static int axp20x_i2c_remove(struct i2c_client *i2c)
  {
  	struct axp20x_dev *axp20x = i2c_get_clientdata(i2c);
  

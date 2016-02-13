@@ -18,7 +18,8 @@ amperage  capacity  charge  charging  connected  power  ts_voltage  voltage
 amperage  cell_activation  charging  low_power
 
 /sys/power/axp_pmu/control:
-battery_rdc  charge_rtc_battery  reset_charge_counter  set_vbus_direct_mode
+battery_rdc         disable_fuel_gauge    set_vbus_direct_mode
+charge_rtc_battery  reset_charge_counter
 
 /sys/power/axp_pmu/pmu:
 overheat  temp  voltage
@@ -60,4 +61,6 @@ Properties table
 | control   | set_vbus_direct_mode  | boolean | -    | 30h[6]   |          |
 | control   | reset_charge_counter  | boolean | -    | B8h[5]   |          |
 | control   | charge_rtc_battery    | boolean | -    | 35h[7]   |          |
+| control   | disable_fuel_gauge    | boolean | -    | B9h[7]   |          |
+| control   | battery_rdc           | integer | µΩ   | BAh:BBh  |          |
 | -         | ocv_curve             | byte[]  | %    | C0h:CFh  |          |

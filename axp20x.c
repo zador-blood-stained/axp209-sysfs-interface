@@ -829,6 +829,9 @@ static ssize_t axp20x_read_bool(struct kobject *kobj, struct kobj_attribute *att
 		} else if (strcmp(attr->attr.name, "charge_rtc_battery") == 0) {
 			reg = AXP20X_CHRG_BAK_CTRL;
 			bit = 7;
+		} else if (strcmp(attr->attr.name, "disable_fuel_gauge") == 0) {
+			reg = AXP20X_FG_RES;
+			bit = 7;
 		} else
 			return -EINVAL;
 	} else
@@ -866,6 +869,9 @@ static ssize_t axp20x_write_bool(struct kobject *kobj, struct kobj_attribute *at
 			bit = 5;
 		} else if (strcmp(attr->attr.name, "charge_rtc_battery") == 0) {
 			reg = AXP20X_CHRG_BAK_CTRL;
+			bit = 7;
+		} else if (strcmp(attr->attr.name, "disable_fuel_gauge") == 0) {
+			reg = AXP20X_FG_RES;
 			bit = 7;
 		} else
 			return -EINVAL;
@@ -1077,6 +1083,8 @@ static struct kobj_attribute control_reset_charge_counter = __ATTR(reset_charge_
 	axp20x_read_bool, axp20x_write_bool);
 static struct kobj_attribute control_charge_rtc_battery = __ATTR(charge_rtc_battery, (S_IRUGO | S_IWUSR),
 	axp20x_read_bool, axp20x_write_bool);
+static struct kobj_attribute control_disable_fuel_gauge = __ATTR(disable_fuel_gauge, (S_IRUGO | S_IWUSR),
+	axp20x_read_bool, axp20x_write_bool);
 static struct kobj_attribute control_battery_rdc = __ATTR(battery_rdc, (S_IRUGO | S_IWUSR),
 	axp20x_read_int, axp20x_write_int);
 
@@ -1084,6 +1092,7 @@ static struct attribute *axp20x_attributes_control[] = {
 	&control_vbus_direct_mode.attr,
 	&control_reset_charge_counter.attr,
 	&control_charge_rtc_battery.attr,
+	&control_disable_fuel_gauge.attr,
 	&control_battery_rdc.attr,
 	NULL,
 };
