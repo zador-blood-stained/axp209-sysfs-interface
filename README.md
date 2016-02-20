@@ -65,3 +65,19 @@ Properties table
 | control   | disable_fuel_gauge    | boolean | -    | B9h[7]   |          |
 | control   | battery_rdc           | integer | µΩ   | BAh:BBh  |          |
 | -         | ocv_curve             | byte[]  | %    | C0h:CFh  |          |
+
+
+Manual battery calibration tool
+===========
+
+```
+Usage: axp20x-calibrate-battery [-h | -p | -e | -l <file> | -s <file>]
+Arguments:
+-h:             Show this help message and exit
+-p:             Print configuration
+-e:             Edit configuration
+-s <file>:      Save OCV table to <file>
+-l <file>:      Load and apply OCV table from <file>
+```
+
+Editing (-e) and loading (-l) requires root privileges

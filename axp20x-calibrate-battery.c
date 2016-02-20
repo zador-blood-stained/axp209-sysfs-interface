@@ -24,7 +24,7 @@
 #include <error.h>
 #include <errno.h>
 
-#define VERSION "v1.0"
+#define VERSION "v1.1"
 
 const char rdc_fname[] = "/sys/power/axp_pmu/control/battery_rdc";
 const char fg_fname[] = "/sys/power/axp_pmu/control/disable_fuel_gauge";
@@ -56,6 +56,19 @@ void clear_screen()
 	printf("\033[2J\033[1;1H");
 }
 
+void set_fuel_gauge(bool state)
+{
+	FILE *fg_file = fopen(fg_fname, "r+");
+	if (!fg_file)
+		error(-1, errno, "Error opening battery fuel gauge control sysfs entry");
+	int result = fprintf(fg_file, "%d", state ? 0 : 1);
+	if (result < 0) {
+		fclose(fg_file);
+		error(-1, errno, "Error writing to battery fuel gauge control sysfs entry");
+	}
+	fclose(fg_file);
+}
+
 void read_configuration(int *rdc, uint8_t *capacity)
 {
 	FILE *rdc_file = fopen(rdc_fname, "r");
@@ -72,14 +85,16 @@ void read_configuration(int *rdc, uint8_t *capacity)
 		error(-1, errno, "Error opening battery OCV sysfs entry");
 	size_t result2 = fread(capacity, 1, 16, ocv_file);
 	if (result2 < 16) {
-		fclose(rdc_file);
+		fclose(ocv_file);
 		error(-1, errno, "Error reading battery OCV sysfs entry");
 	}
 	fclose(ocv_file);
 }
 
-void save_configuration(int rdc, const uint8_t capacity[])
+void write_configuration(int rdc, const uint8_t capacity[])
 {
+	/* TODO: Always reenable fuel gauge on error */
+	set_fuel_gauge(false);
 	FILE *rdc_file = fopen(rdc_fname, "r+");
 	if (!rdc_file)
 		error(-1, errno, "Error opening battery Rdc sysfs entry");
@@ -94,23 +109,12 @@ void save_configuration(int rdc, const uint8_t capacity[])
 		error(-1, errno, "Error opening battery OCV sysfs entry");
 	size_t result2 = fwrite(capacity, 1, 16, ocv_file);
 	if (result2 < 16) {
-		fclose(rdc_file);
+		fclose(ocv_file);
 		error(-1, errno, "Error writing to battery OCV sysfs entry");
 	}
 	fclose(ocv_file);
-}
-
-void set_fuel_gauge(bool state)
-{
-	FILE *fg_file = fopen(fg_fname, "r+");
-	if (!fg_file)
-		error(-1, errno, "Error opening battery fuel gauge control sysfs entry");
-	int result = fprintf(fg_file, "%d", state ? 0 : 1);
-	if (result < 0) {
-		fclose(fg_file);
-		error(-1, errno, "Error writing to battery fuel gauge control sysfs entry");
-	}
-	fclose(fg_file);
+	set_fuel_gauge(true);
+	printf("Write OCV table to sysfs: OK\n");
 }
 
 void print_configuration(int rdc, const uint8_t capacity[])
@@ -173,47 +177,99 @@ bool edit_configuration(int *rdc, uint8_t *capacity)
 	return result;
 }
 
+void import_configuration(char *filename, uint8_t *capacity)
+{
+	FILE *ocv_file = fopen(filename, "rb");
+	if (!ocv_file)
+		error(-1, errno, "Error opening OCV file");
+	size_t result = fread(capacity, 1, 16, ocv_file);
+	if (result < 16) {
+		fclose(ocv_file);
+		error(-1, errno, "Error reading OCV file");
+	}
+	fclose(ocv_file);
+	printf("Import OCV table from %s: OK\n", filename);
+}
+
+void export_configuration(char *filename, const uint8_t capacity[])
+{
+	FILE *ocv_file = fopen(filename, "wb");
+	if (!ocv_file)
+		error(-1, errno, "Error creating OCV file");
+	size_t result = fwrite(capacity, 1, 16, ocv_file);
+	if (result < 16) {
+		fclose(ocv_file);
+		error(-1, errno, "Error writing to OCV file");
+	}
+	fclose(ocv_file);
+	printf("Export OCV table to %s OK\n", filename);
+}
+
+void show_help()
+{
+	printf("Usage: %s [-h | -p | -e | -l <file> | -s <file>]\n", program_invocation_short_name);
+	printf("Arguments:\n");
+	printf("-h:\t\tShow this help message and exit\n");
+	printf("-p:\t\tPrint configuration\n");
+	printf("-e:\t\tEdit configuration\n");
+	printf("-s <file>:\tSave OCV table to <file>\n");
+	printf("-l <file>:\tLoad and apply OCV table from <file>\n");
+}
+
 int main(int argc, char *argv[])
 {
 	printf("axp20x battery calibration tool " VERSION "\n\n");
-	int c;
-	bool do_edit = false;
-	while ((c = getopt(argc, argv, "he")) != -1) {
-		switch (c) {
-		case 'h':
-			printf("Usage: %s [-eh]\n", program_invocation_short_name);
-			printf("Arguments:\n");
-			printf("-e:\tEdit configuration\n");
-			printf("-h:\tShow this help message and exit\n");
-			return 0;
-		case 'e':
-			if(geteuid() != 0)
-				error(-1, EACCES, "Please run as root to edit configuration");
-			do_edit = true;
-			break;
-		default:
-			error(-1, EINVAL, "Unknown option: %c", c);
-		}
-	}
 	/* Check if sysfs directory exists */
 	DIR* dir = opendir(axp_dirname);
 	if (dir) {
-    	closedir(dir);
+		closedir(dir);
 	} else if (ENOENT == errno) {
-    	error(-1, errno, "Unable to find sysfs directory");
+		error(-1, errno, "Unable to find sysfs directory");
 	} else {
-    	error(-1, errno, "Unable to check for axp20x sysfs directory");
+		error(-1, errno, "Unable to check for axp20x sysfs directory");
 	}
+	int c;
+	char *filename;
 	int rdc;
 	uint8_t capacity[16];
-	read_configuration(&rdc, capacity);
-	if (do_edit && edit_configuration(&rdc, capacity)) {
-		printf("Saving configuration\n");
-		set_fuel_gauge(false);
-		save_configuration(rdc, capacity);
-		set_fuel_gauge(true);
+	/* Get options; only one option at a time is supported/needed */
+	if ((c = getopt(argc, argv, "hpel:s:")) != -1) {
+		switch (c) {
+		case 'h':
+			show_help();
+			return 0;
+		case 'p':
+			read_configuration(&rdc, capacity);
+			print_configuration(rdc, capacity);
+			return 0;
+		case 'e':
+			if (geteuid() != 0)
+				error(-1, EACCES, "Please run as root to edit configuration");
+			read_configuration(&rdc, capacity);
+			if (edit_configuration(&rdc, capacity))
+				write_configuration(rdc, capacity);
+			return 0;
+		case 'l':
+			if (geteuid() != 0)
+				error(-1, EACCES, "Please run as root to edit configuration");
+			filename = strdup(optarg);
+			read_configuration(&rdc, capacity);
+			import_configuration(filename, capacity);
+			write_configuration(rdc, capacity);
+			//if (access(filename, R_OK) != -1)
+			//	error(-1, EIO, "Error opening file %s", filename);
+			return 0;
+		case 's':
+			filename = strdup(optarg);
+			read_configuration(&rdc, capacity);
+			export_configuration(filename, capacity);
+			return 0;
+		default:
+			error(-1, EINVAL, "Unknown option: %c", c);
+		}
+	} else {
+		show_help();
+		return 0;
 	}
-	print_configuration(rdc, capacity);
-
 	return 0;
 }
